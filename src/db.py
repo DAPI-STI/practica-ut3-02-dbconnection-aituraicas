@@ -34,7 +34,18 @@ def load_config_from_env() -> DBConfig:
     Recomendación:
     - Validar que DB_PORT sea un número entero.
     """
-    raise NotImplementedError
+    host = os.getenv("DB_HOST", "localhost")
+    port_str = os.getenv("DB_PORT", "3306")
+    try:
+        port = int(port_str)
+    except ValueError:
+        raise ValueError("DB_PORT must be an integer")
+
+    database = os.getenv("DB_NAME", "sti_incidencias")
+    user = os.getenv("DB_USER", "sti_app")
+    password = os.getenv("DB_PASSWORD", "sti_app_2026")
+
+    return DBConfig(host=host, port=port, database=database, user=user, password=password)
 
 
 def get_connection(cfg: Optional[DBConfig] = None) -> MySQLConnection:
@@ -44,7 +55,17 @@ def get_connection(cfg: Optional[DBConfig] = None) -> MySQLConnection:
     - Si cfg es None, debe llamar a load_config_from_env().
     - Debe usar mysql.connector.connect(...) con los parámetros de cfg.
     """
-    raise NotImplementedError
+    if cfg is None:
+        cfg = load_config_from_env()
+
+    conn = mysql.connector.connect(
+        host=cfg.host,
+        port=cfg.port,
+        database=cfg.database,
+        user=cfg.user,
+        password=cfg.password,
+    )
+    return conn
 
 
 def fetch_all(conn: MySQLConnection, query: str, params: Optional[Iterable[Any]] = None) -> list[dict]:
@@ -57,7 +78,13 @@ def fetch_all(conn: MySQLConnection, query: str, params: Optional[Iterable[Any]]
     - Obtener filas con cur.fetchall()
     - Cerrar el cursor siempre (try/finally)
     """
-    raise NotImplementedError
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute(query, tuple(params) if params else ())
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        cur.close()
 
 
 def execute(conn: MySQLConnection, query: str, params: Optional[Iterable[Any]] = None) -> int:
@@ -71,4 +98,10 @@ def execute(conn: MySQLConnection, query: str, params: Optional[Iterable[Any]] =
     - Devolver cur.rowcount
     - Cerrar el cursor siempre (try/finally)
     """
-    raise NotImplementedError
+    cur = conn.cursor()
+    try:
+        cur.execute(query, tuple(params) if params else ())
+        conn.commit()
+        return cur.rowcount
+    finally:
+        cur.close()
